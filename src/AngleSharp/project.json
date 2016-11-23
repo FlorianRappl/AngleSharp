@@ -93,7 +93,7 @@
     "compile": {
       "exclude": "DTD/**/*.cs"
     },
-    "keyFile": "key.snk",
+    "keyFile": "Key.snk",
     "xmlDoc": true
   }
 }
