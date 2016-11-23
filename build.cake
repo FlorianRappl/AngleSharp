@@ -52,6 +52,7 @@ Task("Restore-Packages")
     .Does(() =>
     {
         NuGetRestore("./src/AngleSharp.Core.sln");
+
         DotNetCoreRestore("./src/AngleSharp/project.json");
     });
 
@@ -59,6 +60,8 @@ Task("Build")
     .IsDependentOn("Restore-Packages")
     .Does(() =>
     {
+        var framework = default(String);
+
         if (isRunningOnWindows)
         {
             MSBuild("./src/AngleSharp.Core.sln", new MSBuildSettings()
@@ -71,6 +74,7 @@ Task("Build")
         }
         else
         {
+            framework = "netstandard1.0";
             XBuild("./src/AngleSharp.Core.sln", new XBuildSettings()
                 .SetConfiguration(configuration)
                 .SetVerbosity(Verbosity.Minimal)
@@ -79,7 +83,8 @@ Task("Build")
 
         DotNetCoreBuild("./src/AngleSharp/project.json", new DotNetCoreBuildSettings
         {
-            Configuration = "Release"
+            Configuration = "Release",
+            Framework = framework
         });
     });
 
@@ -102,6 +107,7 @@ Task("Run-Unit-Tests")
 
 Task("Copy-Files")
     .IsDependentOn("Build")
+    .WithCriteria(() => isRunningOnWindows)
     .Does(() =>
     {
         var mapping = new Dictionary<String, String>
@@ -115,13 +121,13 @@ Task("Copy-Files")
 
         foreach (var item in mapping)
         {
-            var target = nugetRoot + Directory("lib") + Directory(item.Key);
-            CreateDirectory(target);
+            var dest = nugetRoot + Directory("lib") + Directory(item.Key);
+            CreateDirectory(dest);
             CopyFiles(new FilePath[]
             {
                 buildDir + Directory(item.Value) + File("AngleSharp.dll"),
                 buildDir + Directory(item.Value) + File("AngleSharp.xml")
-            }, target);
+            }, dest);
         }
 
         CopyFiles(new FilePath[] { "src/AngleSharp.nuspec" }, nugetRoot);
@@ -129,6 +135,7 @@ Task("Copy-Files")
 
 Task("Create-Package")
     .IsDependentOn("Copy-Files")
+    .WithCriteria(() => isRunningOnWindows)
     .Does(() =>
     {
         var nugetExe = GetFiles("./tools/**/nuget.exe").FirstOrDefault()
