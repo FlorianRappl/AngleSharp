@@ -169,6 +169,7 @@
     <Compile Include="TestExtensions.cs" />
     <Compile Include="Xhtml\PreserveValidXhtml.cs" />
     <Compile Include="Xhtml\AutoSelectMarkupFormatter.cs" />
+    <Compile Include="Xml\XmlDom.cs" />
     <Compile Include="Xml\XmlNamespace.cs" />
     <Compile Include="Xml\XmlParsing.cs" />
     <Compile Include="Xml\XmlSamples.cs" />
