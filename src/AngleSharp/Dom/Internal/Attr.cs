@@ -42,7 +42,7 @@
 
         #region Internal Properties
 
-        internal NamedNodeMap Container
+        internal Element Owner
         {
             get;
             set;
@@ -79,7 +79,7 @@
             { 
                 var oldValue = _value;
                 _value = value;
-                Container?.RaiseChangedEvent(this, value, oldValue);
+                Owner?.AttributeChanged(_localName, _namespace, oldValue, value);
             }
         }
 

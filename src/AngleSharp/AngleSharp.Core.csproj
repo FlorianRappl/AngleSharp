@@ -103,7 +103,6 @@
     <Compile Include="Css\CssStyleFormatter.cs" />
     <Compile Include="Css\PseudoClassNames.cs" />
     <Compile Include="Css\PseudoElementNames.cs" />
-    <Compile Include="Dom\Internal\NamedNodeMap.cs" />
     <Compile Include="Dom\DomError.cs" />
     <Compile Include="Browser\Sandboxes.cs" />
     <Compile Include="Dom\ShadowRootMode.cs" />

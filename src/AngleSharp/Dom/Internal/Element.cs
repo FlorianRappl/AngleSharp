@@ -4,6 +4,8 @@
     using AngleSharp.Dom.Events;
     using AngleSharp.Text;
     using System;
+    using System.Collections;
+    using System.Collections.Generic;
     using System.IO;
     using System.Linq;
     using System.Runtime.CompilerServices;
@@ -11,13 +13,13 @@
     /// <summary>
     /// Represents an element node.
     /// </summary>
-    class Element : Node, IElement
+    class Element : Node, IElement, INamedNodeMap
     {
         #region Fields
 
         private static readonly ConditionalWeakTable<Element, IShadowRoot> ShadowRootProperty = new ConditionalWeakTable<Element, IShadowRoot>();
 
-        private readonly NamedNodeMap _attributes;
+        private readonly List<Attr> _attributes;
         private readonly String _namespace;
         private readonly String _prefix;
         private readonly String _localName;
@@ -40,7 +42,26 @@
             _localName = localName;
             _prefix = prefix;
             _namespace = namespaceUri;
-            _attributes = new NamedNodeMap(this);
+            _attributes = new List<Attr>();
+        }
+
+        #endregion
+
+        #region INamedNodeMap
+
+        IAttr INamedNodeMap.this[String name]
+        {
+            get { return GetNamedItem(name); }
+        }
+
+        IAttr INamedNodeMap.this[Int32 index]
+        {
+            get { return index >= 0 && index < _attributes.Count ? _attributes[index] : null; }
+        }
+
+        Int32 INamedNodeMap.Length
+        {
+            get { return _attributes.Count; }
         }
 
         #endregion
@@ -50,11 +71,6 @@
         internal IBrowsingContext Context
         {
             get { return Owner?.Context; }
-        }
-
-        internal NamedNodeMap Attributes
-        {
-            get { return _attributes; }
         }
 
         #endregion
@@ -295,9 +311,9 @@
             }
         }
         
-        INamedNodeMap IElement.Attributes
+        public INamedNodeMap Attributes
         {
-            get { return _attributes; }
+            get { return this; }
         }
 
         public Boolean IsFocused
@@ -326,6 +342,129 @@
         #endregion
 
         #region Methods
+
+        public IAttr GetNamedItem(String name)
+        {
+            for (var i = 0; i < _attributes.Count; i++)
+            {
+                if (name.Is(_attributes[i].Name))
+                {
+                    return _attributes[i];
+                }
+            }
+
+            return null;
+        }
+
+        public IAttr GetNamedItem(String namespaceUri, String localName)
+        {
+            for (var i = 0; i < _attributes.Count; i++)
+            {
+                if (localName.Is(_attributes[i].LocalName) && namespaceUri.Is(_attributes[i].NamespaceUri))
+                {
+                    return _attributes[i];
+                }
+            }
+
+            return null;
+        }
+
+        public IAttr SetNamedItem(IAttr item)
+        {
+            var proposed = Prepare(item);
+
+            if (proposed != null)
+            {
+                var name = item.Name;
+
+                for (var i = 0; i < _attributes.Count; i++)
+                {
+                    if (name.Is(_attributes[i].Name))
+                    {
+                        var attr = _attributes[i];
+                        _attributes[i] = proposed;
+                        AttributeChanged(proposed.LocalName, proposed.NamespaceUri, attr.Value, proposed.Value);
+                        return attr;
+                    }
+                }
+
+                _attributes.Add(proposed);
+                AttributeChanged(proposed.LocalName, proposed.NamespaceUri, null, proposed.Value);
+            }
+
+            return null;
+        }
+
+        public IAttr SetNamedItemWithNamespaceUri(IAttr item, Boolean suppressMutationObservers)
+        {
+            var proposed = Prepare(item);
+
+            if (proposed != null)
+            {
+                var localName = item.LocalName;
+                var namespaceUri = item.NamespaceUri;
+
+                for (var i = 0; i < _attributes.Count; i++)
+                {
+                    if (localName.Is(_attributes[i].LocalName) && namespaceUri.Is(_attributes[i].NamespaceUri))
+                    {
+                        var attr = _attributes[i];
+                        _attributes[i] = proposed;
+
+                        if (!suppressMutationObservers)
+                        {
+                            AttributeChanged(localName, namespaceUri, attr.Value, proposed.Value);
+                        }
+
+                        return attr;
+                    }
+                }
+
+                _attributes.Add(proposed);
+
+                if (!suppressMutationObservers)
+                {
+                    AttributeChanged(localName, namespaceUri, null, proposed.Value);
+                }
+            }
+
+            return null;
+        }
+
+        public IAttr SetNamedItemWithNamespaceUri(IAttr item)
+        {
+            return SetNamedItemWithNamespaceUri(item, false);
+        }
+
+        public IAttr RemoveNamedItem(String name)
+        {
+            var result = RemoveNamedItemOrDefault(name);
+
+            if (result == null)
+                throw new DomException(DomError.NotFound);
+
+            return result;
+        }
+
+        public IAttr RemoveNamedItem(String namespaceUri, String localName)
+        {
+            var result = RemoveNamedItemOrDefault(namespaceUri, localName);
+
+            if (result == null)
+                throw new DomException(DomError.NotFound);
+
+            return result;
+        }
+
+        public IEnumerator<IAttr> GetEnumerator()
+        {
+            return _attributes.GetEnumerator();
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return _attributes.GetEnumerator();
+        }
 
         public IShadowRoot AttachShadow(ShadowRootMode mode = ShadowRootMode.Open)
         {
@@ -390,7 +529,7 @@
                 name = name.HtmlLower();
             }
 
-            return _attributes.GetNamedItem(name) != null;
+            return GetNamedItem(name) != null;
         }
 
         public Boolean HasAttribute(String namespaceUri, String localName)
@@ -400,7 +539,7 @@
                 namespaceUri = null;
             }
 
-            return _attributes.GetNamedItem(namespaceUri, localName) != null;
+            return GetNamedItem(namespaceUri, localName) != null;
         }
 
         public String GetAttribute(String name)
@@ -410,7 +549,7 @@
                 name = name.HtmlLower();
             }
             
-            return _attributes.GetNamedItem(name)?.Value;
+            return GetNamedItem(name)?.Value;
         }
 
         public String GetAttribute(String namespaceUri, String localName)
@@ -420,7 +559,7 @@
                 namespaceUri = null;
             }
             
-            return _attributes.GetNamedItem(namespaceUri, localName)?.Value;
+            return GetNamedItem(namespaceUri, localName)?.Value;
         }
 
         public void SetAttribute(String name, String value)
@@ -450,7 +589,7 @@
                 var prefix = default(String);
                 var localName = default(String);
                 GetPrefixAndLocalName(name, ref namespaceUri, out prefix, out localName);
-                _attributes.SetNamedItem(new Attr(prefix, localName, value, namespaceUri));
+                SetNamedItem(new Attr(prefix, localName, value, namespaceUri));
             }
             else
             {
@@ -465,7 +604,7 @@
                 name = name.HtmlLower();
             }
 
-            return _attributes.RemoveNamedItemOrDefault(name) != null;
+            return RemoveNamedItemOrDefault(name) != null;
         }
 
         public Boolean RemoveAttribute(String namespaceUri, String localName)
@@ -475,7 +614,7 @@
                 namespaceUri = null;
             }
 
-            return _attributes.RemoveNamedItemOrDefault(namespaceUri, localName) != null;
+            return RemoveNamedItemOrDefault(namespaceUri, localName) != null;
         }
 
         public void Prepend(params INode[] nodes)
@@ -495,7 +634,7 @@
             if (otherElement != null)
             {
                 return NamespaceUri.Is(otherElement.NamespaceUri) &&
-                    _attributes.SameAs(otherElement.Attributes) && 
+                    this.SameAs(otherElement.Attributes) && 
                     base.Equals(otherNode);
             }
 
@@ -608,6 +747,65 @@
             _classList?.Update(value);
         }
 
+        internal void FastAddItem(Attr attr)
+        {
+            _attributes.Add(attr);
+        }
+
+        internal IAttr RemoveNamedItemOrDefault(String name, Boolean suppressMutationObservers)
+        {
+            for (var i = 0; i < _attributes.Count; i++)
+            {
+                if (name.Is(_attributes[i].Name))
+                {
+                    var attr = _attributes[i];
+                    _attributes.RemoveAt(i);
+                    attr.Owner = null;
+
+                    if (!suppressMutationObservers)
+                    {
+                        AttributeChanged(attr.LocalName, attr.NamespaceUri, attr.Value, null);
+                    }
+
+                    return attr;
+                }
+            }
+
+            return null;
+        }
+
+        internal IAttr RemoveNamedItemOrDefault(String name)
+        {
+            return RemoveNamedItemOrDefault(name, false);
+        }
+
+        internal IAttr RemoveNamedItemOrDefault(String namespaceUri, String localName, Boolean suppressMutationObservers)
+        {
+            for (var i = 0; i < _attributes.Count; i++)
+            {
+                if (localName.Is(_attributes[i].LocalName) && namespaceUri.Is(_attributes[i].NamespaceUri))
+                {
+                    var attr = _attributes[i];
+                    _attributes.RemoveAt(i);
+                    attr.Owner = null;
+
+                    if (!suppressMutationObservers)
+                    {
+                        AttributeChanged(attr.LocalName, attr.NamespaceUri, attr.Value, null);
+                    }
+
+                    return attr;
+                }
+            }
+
+            return null;
+        }
+
+        internal IAttr RemoveNamedItemOrDefault(String namespaceUri, String localName)
+        {
+            return RemoveNamedItemOrDefault(namespaceUri, localName, false);
+        }
+
         #endregion
 
         #region Helpers
@@ -616,7 +814,7 @@
         {
             if (String.IsNullOrEmpty(value))
             {
-                _attributes.RemoveNamedItemOrDefault(AttributeNames.Style, suppressMutationObservers: true);
+                RemoveNamedItemOrDefault(AttributeNames.Style, suppressMutationObservers: true);
             }
         }
 
@@ -642,12 +840,32 @@
             foreach (var attribute in _attributes)
             {
                 var attr = new Attr(attribute.Prefix, attribute.LocalName, attribute.Value, attribute.NamespaceUri);
-                element._attributes.FastAddItem(attr);
+                element.FastAddItem(attr);
             }
 
             element.SetupElement();
         }
-        
+
+        private Attr Prepare(IAttr item)
+        {
+            var attr = item as Attr;
+
+            if (attr != null)
+            {
+                if (Object.ReferenceEquals(attr.Owner, this))
+                {
+                    return null;
+                }
+
+                if (attr.Owner != null)
+                    throw new DomException(DomError.InUse);
+
+                attr.Owner = this;
+            }
+
+            return attr;
+        }
+
         #endregion
     }
 }

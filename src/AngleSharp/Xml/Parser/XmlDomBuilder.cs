@@ -268,7 +268,7 @@
                     {
                         var attr = tagToken.Attributes[i];
                         var item = CreateAttribute(attr.Key, attr.Value.Trim());
-                        element.Attributes.FastAddItem(item);
+                        element.FastAddItem(item);
                     }
 
                     if (!tagToken.IsSelfClosing)

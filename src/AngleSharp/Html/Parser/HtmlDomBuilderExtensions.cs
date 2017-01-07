@@ -16,13 +16,11 @@
     {
         public static void SetAttributes(this Element element, List<KeyValuePair<String, String>> attributes)
         {
-            var container = element.Attributes;
-
             for (var i = 0; i < attributes.Count; i++)
             {
                 var attribute = attributes[i];
                 var item = new Attr(attribute.Key, attribute.Value);
-                container.FastAddItem(item);
+                element.FastAddItem(item);
             }
         }
 
